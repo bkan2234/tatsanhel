@@ -87,7 +87,7 @@ async function cloudRequestWithRetry(action, extra, tries){
       return await cloudRequest(action, extra);
     }catch(err){
       lastErr = err;
-      if(attempt >= maxTries) break;
+      if(attempt >= maxTries || cloudIsQuotaError(err)) break;
       cloudSetStatus(`${action} bağlantı hatası, tekrar deneniyor... ${attempt+1}/${maxTries}`, true);
       await cloudSleep(900 * attempt);
     }
@@ -183,20 +183,80 @@ async function testCloudConnection(){
 
 // Single-user, multi-device guard: never silently overwrite a newer remote snapshot.
 const CLOUD_BASELINE_KEY = LSKEY + "_cloud_baseline_v2";
+// A compact fingerprint avoids storing a second full copy of the cloud data in
+// localStorage (especially important on iOS, which has a small storage quota).
 function cloudSnapshotFingerprint(value){
   const parsed = typeof value === "string" ? JSON.parse(value) : value;
   const copy = JSON.parse(JSON.stringify(parsed));
-  // Backup metadata is device-specific and must not trigger false conflicts.
   if(copy && copy.ayarlar && copy.ayarlar.cloud){
     delete copy.ayarlar.cloud.lastSave;
     delete copy.ayarlar.cloud.lastLoad;
   }
-  return JSON.stringify(copy);
+  const data = JSON.stringify(copy);
+  let a=2166136261, b=0x811c9dc7;
+  for(let i=0;i<data.length;i++){
+    const c=data.charCodeAt(i);
+    a=Math.imul(a^c,16777619)>>>0;
+    b=Math.imul(b^(c+i%251),16777619)>>>0;
+  }
+  return "fp2:"+data.length+":"+a.toString(16)+":"+b.toString(16);
 }
-function cloudBaseline(){return localStorage.getItem(CLOUD_BASELINE_KEY) || "";}
-function setCloudBaseline(value){localStorage.setItem(CLOUD_BASELINE_KEY, cloudSnapshotFingerprint(value));}
+function cloudBaseline(){
+  const previous=localStorage.getItem(CLOUD_BASELINE_KEY)||"";
+  if(previous && !previous.startsWith("fp2:")){
+    // Migrate the old, multi-megabyte baseline to a short value.
+    try{
+      const compact=cloudSnapshotFingerprint(previous);
+      localStorage.setItem(CLOUD_BASELINE_KEY,compact);
+      return compact;
+    }catch(e){
+      // An unrecognizable baseline must not authorize overwriting cloud data.
+      return "";
+    }
+  }
+  return previous;
+}
+function setCloudBaseline(value){
+  localStorage.setItem(CLOUD_BASELINE_KEY,cloudSnapshotFingerprint(value));
+}
+
+// Protect the Apps Script endpoint from simultaneous and repeated reads.
+let cloudReadPending=null;
+let cloudLastRead=null;
+let cloudLastReadAt=0;
+let cloudQuotaUntil=0;
+function cloudIsQuotaError(err){
+  return /quota|limit exceeded|too many times|çok fazla|kota/i.test(String(err && (err.message||err)));
+}
+function cloudReadableError(err){
+  const message=String(err && (err.message||err));
+  if(cloudIsQuotaError(err)){
+    return "Depolama veya Google hizmet kotası aşıldı. Tekrar denemeden önce bekleyin. Ayrıntı: "+message;
+  }
+  return message;
+}
+async function cloudReadRemote(force){
+  if(cloudReadPending) return cloudReadPending;
+  if(Date.now()<cloudQuotaUntil) throw new Error("Bulut kotası nedeniyle geçici bekleme etkin. Birkaç dakika sonra tekrar deneyin.");
+  if(!force && cloudLastRead && Date.now()-cloudLastReadAt<60000) return cloudLastRead;
+  cloudReadPending=(async()=>{
+    try{
+      const res=await cloudRequest("load");
+      cloudLastRead=res;
+      cloudLastReadAt=Date.now();
+      return res;
+    }catch(err){
+      if(cloudIsQuotaError(err)) cloudQuotaUntil=Date.now()+5*60*1000;
+      throw err;
+    }finally{
+      cloudReadPending=null;
+    }
+  })();
+  return cloudReadPending;
+}
+function cloudInvalidateReadCache(){cloudLastRead=null;cloudLastReadAt=0;}
 async function cloudPreflight(){
-  const remote = await cloudRequest("load");
+  const remote = await cloudReadRemote(false);
   if(!remote.data) return;
   const fingerprint = cloudSnapshotFingerprint(remote.data);
   const baseline = cloudBaseline();
@@ -208,10 +268,11 @@ async function cloudPreflight(){
   }
 }
 async function cloudCheckOtherDevice(){
+  if(cloudSyncBusy) return cloudSetStatus("Bulut işlemi sürüyor; kontrol ertelendi.",false);
   if(!validateCloudConfig()) return;
   if(hasCloudDirty()) return cloudSetStatus("Bu cihazda kaydedilmemiş değişiklik var; buluttan otomatik çekilmedi.",true);
   try{
-    const remote=await cloudRequest("load");
+    const remote=await cloudReadRemote(false);
     if(!remote.data) return cloudSetStatus("Henüz bulutta veri yok.",false);
     const fp=cloudSnapshotFingerprint(remote.data);
     if(!cloudBaseline()) return cloudSetStatus("Bulutta veri bulundu. Buluttan Çek ile ilk eşitlemeyi yapın.",true);
@@ -237,12 +298,14 @@ async function cloudSaveNow(silent){
       saveStateCore();
       clearCloudDirty();
       setCloudBaseline(text);
+      cloudInvalidateReadCache();
       const count = res && res.count ? " Kayıt: " + res.count : "";
       const storage = res && res.storage ? " • " + res.storage : " • post+sheet";
       cloudSetStatus("Buluta kayıt başarılı." + count + storage, false);
       if(!silent) alert("Buluta kayıt tamamlandı.");
       return;
     }catch(postErr){
+      if(cloudIsQuotaError(postErr)) throw postErr;
       cloudSetStatus("POST hızlı kayıt olmadı, parçalı yedek kayıt deneniyor: " + (postErr.message || postErr), true);
       await cloudSleep(600);
     }
@@ -266,6 +329,7 @@ async function cloudSaveNow(silent){
     saveStateCore();
     clearCloudDirty();
     setCloudBaseline(text);
+    cloudInvalidateReadCache();
     const count = res && res.count ? " Kayıt: " + res.count : "";
     const storage = res && res.storage ? " • " + res.storage : "";
     cloudSetStatus("Buluta kayıt başarılı." + count + storage, false);
@@ -279,19 +343,24 @@ async function cloudSaveNow(silent){
 }
 
 async function cloudLoadNow(){
+  if(cloudSyncBusy) return cloudSetStatus("Başka bir bulut işlemi sürüyor. Lütfen bekleyin.",true);
   const cfg = validateCloudConfig();
   if(!cfg) return;
   if(!confirm("Buluttaki veri bu programa yüklensin mi? Mevcut local verinin üzerine yazılır.")) return;
 
+  cloudSyncBusy=true;
   try{
     cloudSetStatus("Buluttan veri çekiliyor...", false);
-    const res = await cloudRequest("load");
+    const res = await cloudReadRemote(true);
     if(!res.data) throw new Error("Bulutta kayıtlı veri bulunamadı.");
 
     const imported = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+    // Shrink legacy baseline BEFORE writing the newly downloaded state.
+    cloudBaseline();
     const newState = normalizeImportedProgramState(imported);
     const menuOrder = imported && Array.isArray(imported.menuOrder) ? imported.menuOrder : null;
 
+    const previousState=JSON.parse(JSON.stringify(state));
     Object.keys(state).forEach(k=>delete state[k]);
     Object.assign(state, newState);
 
@@ -305,17 +374,25 @@ async function cloudLoadNow(){
       localStorage.setItem(programBackupMenuKey(), JSON.stringify(menuOrder));
     }
 
-    saveStateCore();
+    try{
+      saveStateCore();
+      setCloudBaseline(res.data);
+    }catch(storageErr){
+      Object.keys(state).forEach(k=>delete state[k]);
+      Object.assign(state, previousState);
+      throw new Error("Telefonun yerel depolama alanı dolu olabilir; veri uygulanmadı. Tarayıcı verilerini silmeden önce JSON yedeği alın. "+(storageErr.message||storageErr));
+    }
     clearCloudDirty();
-    setCloudBaseline(res.data);
     renderAll();
     go("ayarlar");
     applyCloudSettings();
     cloudSetStatus("Buluttan veri çekildi ve programa yüklendi.", false);
     alert("Bulut verisi yüklendi.");
   }catch(err){
-    cloudSetStatus("Buluttan çekme hatası: " + (err.message || err), true);
-    alert("Buluttan çekme hatası: " + (err.message || err));
+    cloudSetStatus("Buluttan çekme hatası: " + cloudReadableError(err), true);
+    alert("Buluttan çekme hatası: " + cloudReadableError(err));
+  }finally{
+    cloudSyncBusy=false;
   }
 }
 
