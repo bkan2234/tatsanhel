@@ -1,0 +1,30 @@
+/* TATSAN responsive layer: desktop layout is unchanged. */
+.mobile-bar,.mobile-menu-backdrop{display:none}
+@media(max-width:1023px){
+ html,body{width:100%;max-width:100%;overflow-x:hidden}
+ .app{display:block!important;min-width:0!important;width:100%!important}
+ .mobile-bar{display:flex;position:sticky;top:0;z-index:1001;align-items:center;gap:12px;width:100%;min-height:60px;padding:9px 14px;background:#0d2340;color:white;box-shadow:0 2px 12px #10233b33}
+ .mobile-bar strong{font-size:18px;letter-spacing:.3px}.mobile-bar span{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.85}
+ .mobile-menu-toggle{border:1px solid #ffffff55;background:#ffffff20;color:white;border-radius:10px;font-size:24px;min-width:44px;min-height:44px;cursor:pointer}
+ .sidebar{position:fixed!important;z-index:1003!important;top:0!important;bottom:0!important;left:0!important;width:min(310px,85vw)!important;max-width:85vw!important;height:100dvh!important;max-height:100dvh!important;overflow-y:auto!important;transform:translateX(-105%);transition:transform .22s ease;box-shadow:8px 0 25px #0003;padding:22px 14px!important}
+ body.mobile-nav-open .sidebar{transform:translateX(0)}
+ body.mobile-nav-open .mobile-menu-backdrop{display:block;position:fixed;inset:0;z-index:1002;background:#07172b99}
+ .sidebar .menu{display:flex!important;flex-direction:column!important;overflow:visible!important;gap:7px!important}
+ .sidebar .menu button{width:100%!important;min-height:43px!important;text-align:left!important;white-space:normal!important}
+ .main{display:block!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;max-width:100%!important;margin:0!important;padding:14px!important}
+ .main>*{max-width:100%!important;min-width:0!important}
+ .view,.view.active{max-width:100%!important;min-width:0!important}
+ .cards,.grid-2,.grid-half,.summary-box,.form-grid{grid-template-columns:repeat(1,minmax(0,1fr))!important;max-width:100%!important}
+ .card,.dashboard-cloud-quick,.dash-customize,.section-head,.filter-bar,.actions,.topbar{max-width:100%!important;min-width:0!important;box-sizing:border-box!important}
+ .dashboard-cloud-quick,.dashboard-cloud-buttons,.section-head,.filter-bar,.actions,.topbar{flex-wrap:wrap!important}
+ .dashboard-cloud-buttons{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;width:100%!important;gap:8px!important}
+ .dashboard-cloud-buttons button{width:100%!important;min-width:0!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;min-height:43px!important}
+ .dashboard-cloud-info{min-width:0!important;flex-wrap:wrap!important}
+ .table-wrap{max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+ .table-wrap table{min-width:600px}
+ input,select,textarea{max-width:100%!important;min-width:0!important}
+ .card{overflow-wrap:anywhere}
+ .span-2,.span-4{grid-column:auto!important}
+}
+@media(min-width:768px) and (max-width:1023px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:480px){.main{padding:10px!important}.card{padding:12px!important}.dashboard-cloud-buttons{grid-template-columns:1fr!important}.mobile-bar{padding:8px 10px}}
