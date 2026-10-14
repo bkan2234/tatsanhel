@@ -349,48 +349,62 @@ async function cloudLoadNow(){
   if(!confirm("Buluttaki veri bu programa yüklensin mi? Mevcut local verinin üzerine yazılır.")) return;
 
   cloudSyncBusy=true;
+  let stage="01 - Google Drive indirme";
+  let stateApplied=false;
   try{
-    cloudSetStatus("Buluttan veri çekiliyor...", false);
+    cloudSetStatus("[01/04] Google Drive'dan veri indiriliyor...", false);
     const res = await cloudReadRemote(true);
     if(!res.data) throw new Error("Bulutta kayıtlı veri bulunamadı.");
 
+    stage="02 - JSON doğrulama";
+    cloudSetStatus("[02/04] Gelen veri doğrulanıyor...", false);
     const imported = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-    // Shrink legacy baseline BEFORE writing the newly downloaded state.
-    cloudBaseline();
     const newState = normalizeImportedProgramState(imported);
     const menuOrder = imported && Array.isArray(imported.menuOrder) ? imported.menuOrder : null;
 
+    stage="03 - iPhone yerel kayıt";
+    cloudSetStatus("[03/04] Veri tarayıcıya kaydediliyor...", false);
+    // Save only after successful validation; preserve the old stored data on failure.
     const previousState=JSON.parse(JSON.stringify(state));
+    const previousStored=localStorage.getItem(LSKEY);
     Object.keys(state).forEach(k=>delete state[k]);
     Object.assign(state, newState);
-
     ensureCloudSettings();
     state.ayarlar.cloud.url = cfg.url;
     state.ayarlar.cloud.token = cfg.token;
     state.ayarlar.cloud.auto = cfg.auto;
     state.ayarlar.cloud.lastLoad = new Date().toISOString();
-
-    if(menuOrder && typeof programBackupMenuKey === "function"){
-      localStorage.setItem(programBackupMenuKey(), JSON.stringify(menuOrder));
-    }
-
     try{
       saveStateCore();
-      setCloudBaseline(res.data);
+      stateApplied=true;
     }catch(storageErr){
       Object.keys(state).forEach(k=>delete state[k]);
       Object.assign(state, previousState);
-      throw new Error("Telefonun yerel depolama alanı dolu olabilir; veri uygulanmadı. Tarayıcı verilerini silmeden önce JSON yedeği alın. "+(storageErr.message||storageErr));
+      // localStorage.setItem is atomic; failed writes leave previous data untouched.
+      throw storageErr;
+    }
+
+    // These are optional metadata, not part of the actual cloud download.
+    // Their storage quota failures must not falsely report that download failed.
+    try{setCloudBaseline(res.data);}catch(metaErr){console.warn("TATSAN baseline kaydedilemedi",metaErr);}
+    if(menuOrder && typeof programBackupMenuKey === "function"){
+      try{localStorage.setItem(programBackupMenuKey(),JSON.stringify(menuOrder));}catch(metaErr){console.warn("TATSAN menü sırası kaydedilemedi",metaErr);}
     }
     clearCloudDirty();
+
+    stage="04 - Ekranları yenileme";
+    cloudSetStatus("[04/04] Ekranlar güncelleniyor...", false);
     renderAll();
     go("ayarlar");
     applyCloudSettings();
-    cloudSetStatus("Buluttan veri çekildi ve programa yüklendi.", false);
+    cloudSetStatus("Buluttan veri başarıyla çekildi ve kaydedildi.", false);
     alert("Bulut verisi yüklendi.");
   }catch(err){
-    cloudSetStatus("Buluttan çekme hatası: " + cloudReadableError(err), true);
-    alert("Buluttan çekme hatası: " + cloudReadableError(err));
+    const detail=cloudReadableError(err);
+    const message="Bulut işlemi başarısız ["+stage+"]: "+detail+(stateApplied?". Veri yerel hafızaya kaydedildi; hata sonraki aşamada oluştu.":". Eski kayıtlar korunmaya çalışıldı.");
+    console.error("TATSAN bulut teşhis",{stage, stateApplied, error:err});
+    try{cloudSetStatus(message,true);}catch(_e){}
+    alert(message);
   }finally{
     cloudSyncBusy=false;
   }
