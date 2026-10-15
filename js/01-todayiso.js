@@ -18,8 +18,11 @@ function trDate(iso){
 function normalizeMoneyValue(n){ n = Number(n)||0; return Math.abs(n) < 0.005 ? 0 : n; }
 function money(n){ n = normalizeMoneyValue(n); return n.toLocaleString("tr-TR",{style:"currency",currency:"TRY"}); }
 function uid(prefix){
-  const n = Math.floor(Math.random()*90000)+10000;
-  return prefix + "-" + n;
+  if(typeof crypto!=="undefined" && typeof crypto.randomUUID==="function") return prefix+"-"+crypto.randomUUID();
+  const bytes=new Uint8Array(16);
+  if(typeof crypto!=="undefined" && typeof crypto.getRandomValues==="function") crypto.getRandomValues(bytes);
+  else for(let i=0;i<bytes.length;i++) bytes[i]=Math.floor(Math.random()*256);
+  return prefix+"-"+Date.now().toString(36)+"-"+Array.from(bytes,x=>x.toString(16).padStart(2,"0")).join("");
 }
 function loadState(){
   const raw = localStorage.getItem(LSKEY);

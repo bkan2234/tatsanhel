@@ -499,15 +499,22 @@ function importProgramJsonObject(imported){
 
   const menuOrder = imported && Array.isArray(imported.menuOrder) ? imported.menuOrder : null;
 
+  // Commit to browser storage before mutating the live in-memory state.
+  // A QuotaExceededError must leave the previous program data intact.
+  try{
+    localStorage.setItem(LSKEY,JSON.stringify(newState));
+  }catch(err){
+    programJsonStatus("JSON yüklenemedi: cihaz depolama alanı yetersiz veya erişilemiyor. Eski veriler korundu.",true);
+    alert("JSON içe aktarma başarısız: "+(err.message||err));
+    return false;
+  }
   Object.keys(state).forEach(k=>delete state[k]);
-  Object.assign(state, newState);
-
-  if(menuOrder) localStorage.setItem(programBackupMenuKey(), JSON.stringify(menuOrder));
-  saveState();
-  try{ loadMenuOrder(); }catch(e){}
-  if(menuOrder) localStorage.setItem(programBackupMenuKey(), JSON.stringify(menuOrder));
+  Object.assign(state,newState);
+  try{markCloudDirty();}catch(err){console.warn("Bulut değişiklik işareti yazılamadı",err);}
+  try{scheduleCloudAutoSync();}catch(err){console.warn("Otomatik kayıt zamanlanamadı",err);}
+  if(menuOrder){try{localStorage.setItem(programBackupMenuKey(),JSON.stringify(menuOrder));}catch(err){console.warn("Menü sırası kaydedilemedi",err);}}
+  try{loadMenuOrder();}catch(err){console.warn("Menü sırası yüklenemedi",err);}
   renderAll();
-  if(menuOrder) localStorage.setItem(programBackupMenuKey(), JSON.stringify(menuOrder));
 
   go("ayarlar");
   programJsonStatus(`JSON yüklendi. Firma: ${firmaCount}, Ürün: ${urunCount}, Sipariş: ${orderCount}, Tahsilat: ${paymentCount}`, false);

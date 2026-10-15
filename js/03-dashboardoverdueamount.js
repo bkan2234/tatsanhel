@@ -44,10 +44,10 @@ function renderDashboard(){
   dYearlyOrderCount.textContent = ps.yearlyCount;
 
   const moves = getMoves().slice(0,6);
-  dashMoves.innerHTML = moves.map(m=>`<tr><td>${trDate(m.tarih)}</td><td>${m.firma}</td><td>${dashboardMoveActionHtml(m)}</td><td class="money">${money(m.tutar)}</td><td>${m.aciklama||""}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">Henüz hareket yok</td></tr>`;
+  dashMoves.innerHTML = moves.map(m=>`<tr><td>${trDate(m.tarih)}</td><td>${htmlEscape(m.firma)}</td><td>${dashboardMoveActionHtml(m)}</td><td class="money">${money(m.tutar)}</td><td>${htmlEscape(m.aciklama||"")}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">Henüz hareket yok</td></tr>`;
 
   const top = state.firmalar.map(f=>({ad:f.ad,vade:f.vade,bal:firmaOpenBalance(f.ad)})).filter(x=>normalizeMoneyValue(x.bal)>0).sort((a,b)=>b.bal-a.bal).slice(0,5);
-  dashTopFirms.innerHTML = top.map(x=>`<tr><td>${x.ad}</td><td class="money orange">${money(x.bal)}</td><td>${x.vade} Gün</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Açık bakiye yok</td></tr>`;
+  dashTopFirms.innerHTML = top.map(x=>`<tr><td>${htmlEscape(x.ad)}</td><td class="money orange">${money(x.bal)}</td><td>${x.vade} Gün</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Açık bakiye yok</td></tr>`;
 
   let warns = "";
   if(openOrders>0) warns += `<div class="warn warning-click" role="button" tabindex="0" onclick="goOrderWarnings()" onkeydown="if(event.key==='Enter'||event.key===' '){goOrderWarnings()}">${openOrders} adet açık sipariş var.</div>`;
@@ -217,7 +217,7 @@ function viewFirma(kod){
       <td>${trDate(m.tarih)}</td>
       <td>${badge(m.tip)}</td>
       <td class="money">${money(m.tutar)}</td>
-      <td>${m.aciklama||""}</td>
+      <td>${htmlEscape(m.aciklama||"")}</td>
     </tr>
   `).join("") || `<tr><td colspan="4" class="muted">Bu firmaya ait hareket yok</td></tr>`;
 

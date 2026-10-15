@@ -71,10 +71,10 @@ async function cloudWaitPostStatus(requestId, tries){
   throw new Error("POST gönderildi ama kayıt doğrulanamadı.");
 }
 
-async function cloudSaveByPost(text){
+async function cloudSaveByPost(text, expectedRevision){
   const requestId = "POST_" + Date.now() + "_" + Math.random().toString(36).slice(2);
   cloudSetStatus("Tek sefer hızlı POST kayıt gönderiliyor...", false);
-  await cloudPostRequest("save_post", {requestId, data:text}, 90000);
+  await cloudPostRequest("save_post", {requestId, data:text, expectedRevision}, 90000);
   cloudSetStatus("POST gönderildi, kayıt doğrulanıyor...", false);
   return await cloudWaitPostStatus(requestId, 12);
 }
@@ -183,6 +183,9 @@ async function testCloudConnection(){
 
 // Single-user, multi-device guard: never silently overwrite a newer remote snapshot.
 const CLOUD_BASELINE_KEY = LSKEY + "_cloud_baseline_v2";
+const CLOUD_REVISION_KEY = LSKEY + "_cloud_revision_v1";
+function cloudRevision(){try{return localStorage.getItem(CLOUD_REVISION_KEY)||"";}catch(e){return "";}}
+function setCloudRevision(revision){if(revision)try{localStorage.setItem(CLOUD_REVISION_KEY,String(revision));}catch(e){console.warn("Bulut sürüm kaydı yazılamadı",e);}}
 // A compact fingerprint avoids storing a second full copy of the cloud data in
 // localStorage (especially important on iOS, which has a small storage quota).
 function cloudSnapshotFingerprint(value){
@@ -257,7 +260,7 @@ async function cloudReadRemote(force){
 function cloudInvalidateReadCache(){cloudLastRead=null;cloudLastReadAt=0;}
 async function cloudPreflight(){
   const remote = await cloudReadRemote(false);
-  if(!remote.data) return;
+  if(!remote.data) return remote.revision || "empty";
   const fingerprint = cloudSnapshotFingerprint(remote.data);
   const baseline = cloudBaseline();
   if(!baseline){
@@ -266,6 +269,8 @@ async function cloudPreflight(){
   if(fingerprint !== baseline){
     throw new Error("Diğer bilgisayarda yeni kayıt var. Üzerine yazılmadı. Önce yerel verileri JSON olarak yedekleyip Buluttan Çek yapın.");
   }
+  if(!remote.revision) throw new Error("Sunucu sürüm denetimi desteklemiyor. Önce yeni Code.gs dağıtımını yapın.");
+  return remote.revision;
 }
 async function cloudCheckOtherDevice(){
   if(cloudSyncBusy) return cloudSetStatus("Bulut işlemi sürüyor; kontrol ertelendi.",false);
@@ -288,16 +293,16 @@ async function cloudSaveNow(silent){
   if(!validateCloudConfig()) return;
   cloudSyncBusy = true;
   try{
-    await cloudPreflight();
+    const expectedRevision = await cloudPreflight();
     const text = JSON.stringify(cloudPayload());
 
     try{
-      const res = await cloudSaveByPost(text);
+      const res = await cloudSaveByPost(text, expectedRevision);
       ensureCloudSettings();
       state.ayarlar.cloud.lastSave = new Date().toISOString();
-      saveStateCore();
-      clearCloudDirty();
-      setCloudBaseline(text);
+      try{saveStateCore();}catch(e){console.warn("Bulut kaydı başarılı, yerel durum güncellenemedi",e);}
+      try{clearCloudDirty();}catch(e){console.warn("Bulut durum bilgisi güncellenemedi",e);}
+      try{setCloudBaseline(text);setCloudRevision(res.revision||"");}catch(e){console.warn("Bulut parmak izi yazılamadı",e);}
       cloudInvalidateReadCache();
       const count = res && res.count ? " Kayıt: " + res.count : "";
       const storage = res && res.storage ? " • " + res.storage : " • post+sheet";
@@ -314,7 +319,7 @@ async function cloudSaveNow(silent){
     const uploadId = "UP_" + Date.now() + "_" + Math.random().toString(36).slice(2);
 
     cloudSetStatus(`Yedek parçalı kayıt başlıyor... ${chunks.length} parça`, false);
-    await cloudRequestWithRetry("save_start", {uploadId, total:chunks.length}, 3);
+    await cloudRequestWithRetry("save_start", {uploadId, total:chunks.length, expectedRevision}, 3);
 
     for(let i=0; i<chunks.length; i++){
       const encodedSize = cloudEncodedLength(chunks[i]);
@@ -326,9 +331,9 @@ async function cloudSaveNow(silent){
     const res = await cloudRequestWithRetry("save_finish", {uploadId}, 3);
     ensureCloudSettings();
     state.ayarlar.cloud.lastSave = new Date().toISOString();
-    saveStateCore();
-    clearCloudDirty();
-    setCloudBaseline(text);
+    try{saveStateCore();}catch(e){console.warn("Bulut kaydı başarılı, yerel durum güncellenemedi",e);}
+    try{clearCloudDirty();}catch(e){console.warn("Bulut durum bilgisi güncellenemedi",e);}
+    try{setCloudBaseline(text);setCloudRevision(res.revision||"");}catch(e){console.warn("Bulut parmak izi yazılamadı",e);}
     cloudInvalidateReadCache();
     const count = res && res.count ? " Kayıt: " + res.count : "";
     const storage = res && res.storage ? " • " + res.storage : "";
@@ -342,11 +347,17 @@ async function cloudSaveNow(silent){
   }
 }
 
+let cloudLocalBackupAcknowledged=false;
 async function cloudLoadNow(){
   if(cloudSyncBusy) return cloudSetStatus("Başka bir bulut işlemi sürüyor. Lütfen bekleyin.",true);
   const cfg = validateCloudConfig();
   if(!cfg) return;
-  if(!confirm("Buluttaki veri bu programa yüklensin mi? Mevcut local verinin üzerine yazılır.")) return;
+  if(hasCloudDirty()){
+    const proceed=confirm("Bu cihazda buluta gönderilmemiş yerel değişiklikler var. Google Drive kayıtlarının en güncel olduğundan eminseniz TAMAM'a basarak buluttaki verilerle yerel verileri değiştirebilirsiniz. Bu cihazdaki gönderilmemiş değişiklikler kaybolur. JSON yedeği indirmek zorunlu değildir. İPTAL ile vazgeçebilirsiniz.");
+    if(!proceed) return;
+  }else{
+    if(!confirm("Google Drive'daki veriler bu cihaza yüklensin mi? Mevcut yerel verilerin üzerine yazılır.")) return;
+  }
 
   cloudSyncBusy=true;
   let stage="01 - Google Drive indirme";
@@ -386,16 +397,17 @@ async function cloudLoadNow(){
 
     // These are optional metadata, not part of the actual cloud download.
     // Their storage quota failures must not falsely report that download failed.
-    try{setCloudBaseline(res.data);}catch(metaErr){console.warn("TATSAN baseline kaydedilemedi",metaErr);}
+    try{setCloudBaseline(res.data);setCloudRevision(res.revision||"");}catch(metaErr){console.warn("TATSAN baseline kaydedilemedi",metaErr);}
     if(menuOrder && typeof programBackupMenuKey === "function"){
       try{localStorage.setItem(programBackupMenuKey(),JSON.stringify(menuOrder));}catch(metaErr){console.warn("TATSAN menü sırası kaydedilemedi",metaErr);}
     }
     clearCloudDirty();
+    cloudLocalBackupAcknowledged=false;
 
     stage="04 - Ekranları yenileme";
     cloudSetStatus("[04/04] Ekranlar güncelleniyor...", false);
     renderAll();
-    go("ayarlar");
+    // Keep the currently selected page after a successful cloud import.
     applyCloudSettings();
     cloudSetStatus("Buluttan veri başarıyla çekildi ve kaydedildi.", false);
     alert("Bulut verisi yüklendi.");
