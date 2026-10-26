@@ -347,17 +347,15 @@ async function cloudSaveNow(silent){
   }
 }
 
-let cloudLocalBackupAcknowledged=false;
 async function cloudLoadNow(){
   if(cloudSyncBusy) return cloudSetStatus("Başka bir bulut işlemi sürüyor. Lütfen bekleyin.",true);
   const cfg = validateCloudConfig();
   if(!cfg) return;
   if(hasCloudDirty()){
-    const proceed=confirm("Bu cihazda buluta gönderilmemiş yerel değişiklikler var. Google Drive kayıtlarının en güncel olduğundan eminseniz TAMAM'a basarak buluttaki verilerle yerel verileri değiştirebilirsiniz. Bu cihazdaki gönderilmemiş değişiklikler kaybolur. JSON yedeği indirmek zorunlu değildir. İPTAL ile vazgeçebilirsiniz.");
-    if(!proceed) return;
-  }else{
-    if(!confirm("Google Drive'daki veriler bu cihaza yüklensin mi? Mevcut yerel verilerin üzerine yazılır.")) return;
+    alert("Bu cihazda buluta gönderilmemiş değişiklikler var. Önce JSON yedeği alın. Yerel değişiklikleri kaybetmemek için buluttan çekme durduruldu.");
+    return;
   }
+  if(!confirm("Buluttaki veri bu programa yüklensin mi? Mevcut local verinin üzerine yazılır.")) return;
 
   cloudSyncBusy=true;
   let stage="01 - Google Drive indirme";
@@ -402,12 +400,11 @@ async function cloudLoadNow(){
       try{localStorage.setItem(programBackupMenuKey(),JSON.stringify(menuOrder));}catch(metaErr){console.warn("TATSAN menü sırası kaydedilemedi",metaErr);}
     }
     clearCloudDirty();
-    cloudLocalBackupAcknowledged=false;
 
     stage="04 - Ekranları yenileme";
     cloudSetStatus("[04/04] Ekranlar güncelleniyor...", false);
     renderAll();
-    // Keep the currently selected page after a successful cloud import.
+    go("ayarlar");
     applyCloudSettings();
     cloudSetStatus("Buluttan veri başarıyla çekildi ve kaydedildi.", false);
     alert("Bulut verisi yüklendi.");

@@ -89,8 +89,15 @@ function getFirmInvoiceBalances(firmaAd){
     const target=String(p.orderNo || p.faturaNo || "").trim();
     if(target){
       const row=orders.find(x=>x.key===target);
-      if(row) row.paid += amount;
-      else genericPayments.push(amount);
+      if(row){
+        // Invoice payments cannot reduce an invoice below zero. Any excess is
+        // carried forward to other open invoices, then remains customer credit.
+        const room=Math.max(0,row.total-row.paid);
+        const used=Math.min(room,amount);
+        row.paid += used;
+        const excess=amount-used;
+        if(excess>0.009) genericPayments.push(excess);
+      }else genericPayments.push(amount);
     }else genericPayments.push(amount);
   });
 
@@ -176,7 +183,15 @@ function savePayment(){
   if(orderNo){
     const row=getFirmInvoiceBalances(t_firma.value).find(x=>x.key===orderNo);
     if(!row || row.remaining<=0.009) return alert("Seçilen faturanın açık borcu bulunmuyor.");
-    if(tutar-row.remaining>0.009) return alert("Tahsilat tutarı seçilen faturanın kalan borcundan fazla olamaz. Kalan: "+money(row.remaining));
+    if(tutar-row.remaining>0.009){
+      const excess=tutar-row.remaining;
+      const ok=confirm(
+        "Girilen tahsilat seçilen faturanın kalanından "+money(excess)+" fazla.\\n\\n"+
+        "Fazla tutar önce diğer açık faturalara mahsup edilir; mahsup edilemeyen kısım müşterinin alacağı olarak cari bakiyeye yansır.\\n\\n"+
+        "Devam edilsin mi?"
+      );
+      if(!ok) return;
+    }
   }
   const payDate = t_tarih.value || todayISO();
   state.payments.push({tarih:payDate,firma:t_firma.value,tutar,tip:t_tip.value,aciklama:t_aciklama.value || "Cariden ödeme alındı",orderNo:orderNo||""});
