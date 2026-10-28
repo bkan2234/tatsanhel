@@ -351,11 +351,11 @@ async function cloudLoadNow(){
   if(cloudSyncBusy) return cloudSetStatus("Başka bir bulut işlemi sürüyor. Lütfen bekleyin.",true);
   const cfg = validateCloudConfig();
   if(!cfg) return;
-  if(hasCloudDirty()){
-    alert("Bu cihazda buluta gönderilmemiş değişiklikler var. Önce JSON yedeği alın. Yerel değişiklikleri kaybetmemek için buluttan çekme durduruldu.");
-    return;
-  }
-  if(!confirm("Buluttaki veri bu programa yüklensin mi? Mevcut local verinin üzerine yazılır.")) return;
+  const localDirty = hasCloudDirty();
+  const pullWarning = localDirty
+    ? "UYARI: Bu telefonda buluta gönderilmemiş yerel değişiklikler algılandı.\\n\\nBilgisayardaki güncel veriyi buluta yüklediğinizi ve telefonun JSON yedeğini aldığınızı doğruladıysanız devam edin. Buluttaki kayıt telefonun mevcut yerel verisinin yerine geçecek. Telefonun yerel değişiklikleri kaybolabilir.\\n\\nBuluttaki veriyi telefona yüklemek istiyor musunuz?"
+    : "Buluttaki veri bu programa yüklensin mi? Mevcut yerel verinin üzerine yazılır.";
+  if(!confirm(pullWarning)) return;
 
   cloudSyncBusy=true;
   let stage="01 - Google Drive indirme";

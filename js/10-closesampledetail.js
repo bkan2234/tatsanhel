@@ -90,8 +90,7 @@ function getFirmInvoiceBalances(firmaAd){
     if(target){
       const row=orders.find(x=>x.key===target);
       if(row){
-        // Invoice payments cannot reduce an invoice below zero. Any excess is
-        // carried forward to other open invoices, then remains customer credit.
+        // Apply up to the selected invoice balance; preserve excess as customer credit.
         const room=Math.max(0,row.total-row.paid);
         const used=Math.min(room,amount);
         row.paid += used;
