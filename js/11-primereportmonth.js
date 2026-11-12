@@ -214,6 +214,7 @@ function openCustomerStatement(firma){
   const moves=[];
   (state.orders||[]).filter(o=>o.firma===firma && !["Taslak","İptal"].includes(o.durum)).forEach(o=>moves.push({date:o.tarih,type:'Satış',no:o.no||'',debit:Number(o.total||0),credit:0}));
   (state.payments||[]).filter(p=>p.firma===firma).forEach(p=>moves.push({date:p.tarih,type:'Tahsilat',no:p.orderNo||'',debit:0,credit:Number(p.tutar||0)}));
+  (state.customerReturns||[]).filter(r=>r.firm===firma&&r.status==='Onaylandı'&&r.finance==='credit'&&r.financeDone===true).forEach(r=>moves.push({date:String(r.approvedAt||r.date||'').slice(0,10),type:'İade / Cari Mahsup',no:r.orderNo||'',debit:0,credit:Number(r.amount||0)}));
   moves.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')) || (a.type==='Satış'?-1:1));
   let bal=0;
   const rows=moves.map(m=>{bal+=m.debit-m.credit;return `<tr><td>${trDate(m.date)}</td><td>${m.type}</td><td>${htmlEscape(m.no)}</td><td>${m.debit?money(m.debit):'-'}</td><td>${m.credit?money(m.credit):'-'}</td><td><b>${money(bal)}</b></td></tr>`}).join('');

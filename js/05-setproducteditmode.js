@@ -469,6 +469,7 @@ function saveOrderDraft(){
 
   if(editingOrderIndex !== null && state.orders[editingOrderIndex]){
     const previous=state.orders[editingOrderIndex];
+    if((state.customerReturns||[]).some(r=>r.orderNo===previous.no&&r.status!=="Reddedildi"))return alert("İade kaydı bulunan fatura düzenlenemez.");
     if((previous.sevkler||[]).some(sh=>sh.id&&stockInit().movements.some(m=>m.shipmentKey===sh.id))){alert('Stoktan düşülmüş sevkiyatı bulunan sipariş düzenlenemez. Önce İşlem Geçmişi üzerinden sevkiyatı geri alın.');return;}
     state.orders[editingOrderIndex] = obj;
     alert("Sipariş taslak olarak güncellendi.");
@@ -488,6 +489,7 @@ function saveOrder(){
 
   if(editingOrderIndex !== null && state.orders[editingOrderIndex]){
     const previous=state.orders[editingOrderIndex];
+    if((state.customerReturns||[]).some(r=>r.orderNo===previous.no&&r.status!=="Reddedildi"))return alert("İade kaydı bulunan fatura düzenlenemez.");
     if((previous.sevkler||[]).some(sh=>sh.id&&stockInit().movements.some(m=>m.shipmentKey===sh.id))){alert('Stoktan düşülmüş sevkiyatı bulunan sipariş düzenlenemez. Önce İşlem Geçmişi üzerinden sevkiyatı geri alın.');return;}
     state.orders[editingOrderIndex] = obj;
     alert("Sipariş güncellendi.");

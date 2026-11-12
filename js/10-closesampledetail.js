@@ -82,6 +82,12 @@ function getFirmInvoiceBalances(firmaAd){
     .map((o,index)=>({order:o,index,key:paymentOrderKey(o), total:Math.max(0,Number(o.total)||0), paid:0}))
     .sort((a,b)=>String(a.order.tarih||"").localeCompare(String(b.order.tarih||"")) || a.index-b.index);
 
+  // Onaylı iadeleri faturanın borcundan ayrı bir kalem olarak mahsup et.
+  orders.forEach(row=>{
+    const credit=(state.customerReturns||[]).filter(r=>r.firm===firmaAd&&r.orderNo===row.key&&r.status==='Onaylandı'&&r.finance==='credit'&&r.financeDone===true).reduce((sum,r)=>sum+Number(r.amount||0),0);
+    row.total=Math.max(0,row.total-credit);
+  });
+
   // Önce doğrudan bir faturaya bağlanmış tahsilatları o faturaya uygula.
   const genericPayments=[];
   (state.payments||[]).filter(p=>p.firma===firmaAd).forEach(p=>{

@@ -36,7 +36,7 @@
       <button data-view="vadeTakvim">Vade Takvimi</button>
       <button data-view="uyarilar">Uyarı Merkezi</button>
       <button data-view="islemGecmisi">İşlem Geçmişi</button>
-      <button data-view="iadeler">Müşteri İadeleri</button>
+      
       <button data-view="katalog">Katalog Oluştur</button>
       <button data-view="raporlar">Raporlar</button>
       <button data-view="ayarlar">Ayarlar</button>
@@ -376,7 +376,7 @@
     </section>
 
     <section class="view" id="siparisler">
-<div class="tatsan-group-switch"><label for="tatsanGroupSelect_siparisler">Siparişler ve Tahsilatlar — Sayfa seç</label><select id="tatsanGroupSelect_siparisler" onchange="go(this.value)"><option value="siparisler" selected>Siparişler</option><option value="tahsilatlar">Tahsilatlar</option></select></div>
+<div class="tatsan-group-switch"><label for="tatsanGroupSelect_siparisler">Siparişler ve Tahsilatlar — Sayfa seç</label><select id="tatsanGroupSelect_siparisler" onchange="go(this.value)"><option value="siparisler" selected>Siparişler</option><option value="tahsilatlar">Tahsilatlar</option><option value="iadeler">İadeler</option></select></div>
       <div class="card order-control-panel">
         <div>
           <h2>Sipariş Yönetimi</h2>
@@ -913,7 +913,7 @@
     </section>
 
     <section class="view" id="tahsilatlar">
-<div class="tatsan-group-switch"><label for="tatsanGroupSelect_tahsilatlar">Siparişler ve Tahsilatlar — Sayfa seç</label><select id="tatsanGroupSelect_tahsilatlar" onchange="go(this.value)"><option value="siparisler">Siparişler</option><option value="tahsilatlar" selected>Tahsilatlar</option></select></div>
+<div class="tatsan-group-switch"><label for="tatsanGroupSelect_tahsilatlar">Siparişler ve Tahsilatlar — Sayfa seç</label><select id="tatsanGroupSelect_tahsilatlar" onchange="go(this.value)"><option value="siparisler">Siparişler</option><option value="tahsilatlar" selected>Tahsilatlar</option><option value="iadeler">İadeler</option></select></div>
       <div class="card">
         <div class="section-head"><h2>Tahsilat Girişi</h2><span class="muted">Tahsilat açık bakiyeyi düşürür</span></div>
         <div class="form-grid">
@@ -1389,20 +1389,21 @@
 <section class="view" id="uyarilar"><div class="card"><h2>Akıllı Uyarı Merkezi</h2><p class="muted">Kritik stoklar, geciken ve yaklaşan tahsilatlar, bekleyen siparişler.</p><div id="businessAlerts"></div></div></section>
 <section class="view" id="islemGecmisi"><div class="card"><h2>İşlem Geçmişi ve Geri Alma</h2><p class="muted">Stok işlemleri ve sevkiyatlar kaydedilir. Geri alma yalnızca desteklenen işlemlerde, ilgili kayıt değişmemişse kullanılabilir. Geçmiş en fazla 300 kayıt tutar.</p><div class="table-wrap"><table><thead><tr><th>Zaman</th><th>İşlem</th><th>Açıklama</th><th>Geri Alma</th></tr></thead><tbody id="businessHistoryRows"></tbody></table></div></div></section>
 <section class="view" id="iadeler">
-<div class="card"><h2>Müşteri İade ve Aksiyon Yönetimi</h2><p class="muted">İade talebi açıldığında stok ve cari hesap değişmez. Kontrol sonrası onaylanan sağlam ürünler seçilen depoya alınır. Finansal aksiyon ayrıca takip edilir; cari hesap ve ödeme kaydı otomatik değiştirilmez.</p>
+<div class="tatsan-group-switch"><label for="tatsanGroupSelect_iadeler">Siparişler ve Tahsilatlar — Sayfa seç</label><select id="tatsanGroupSelect_iadeler" onchange="go(this.value)"><option value="siparisler">Siparişler</option><option value="tahsilatlar">Tahsilatlar</option><option value="iadeler" selected>İadeler</option></select></div>
+<div class="card"><div class="section-head"><h2>Faturaya Bağlı Müşteri İadesi</h2><span class="muted">Onaylanan iade otomatik cari borçtan düşülür; aynı ürün ikinci kez iade edilemez.</span></div>
 <div class="form-grid">
-<label>Firma<select id="ret_firm" onchange="returnUpdateOrders()"></select></label>
-<label>İlgili Sipariş<select id="ret_order"></select></label>
-<label>Ürün<select id="ret_product"></select></label>
-<label>Miktar (ürünün stok birimi)<input id="ret_qty" type="number" min="0.001" step="0.001"></label>
-<label>İade Nedeni<select id="ret_reason"><option>Hasarlı ürün</option><option>SKT problemi</option><option>Yanlış ürün</option><option>Fazla ürün</option><option>Kalite problemi</option><option>Diğer</option></select></label>
-<label>Ürün Durumu<select id="ret_condition"><option value="quarantine">Karantina / İnceleme</option><option value="saleable">Sağlam / Satılabilir</option><option value="scrap">İmha / Hurda</option></select></label>
-<label>Finansal Aksiyon<select id="ret_finance"><option value="pending">Karar bekliyor</option><option value="credit">Cari alacaktan mahsup</option><option value="refund">Para iadesi</option><option value="replace">Ürün değişimi</option></select></label>
-<label>İade Tutarı (₺, bilgi amaçlı)<input id="ret_amount" type="number" min="0" step="0.01" value="0"></label>
-<label>İade Kabul Deposu<select id="ret_place"></select></label>
-<label>Açıklama<input id="ret_note" placeholder="İade ayrıntıları"></label>
-</div><button class="btn primary" onclick="returnCreate()">İade Talebi Oluştur</button></div>
-<div class="card"><h3>İade Kayıtları ve Aksiyonlar</h3><div class="table-wrap"><table><thead><tr><th>Tarih / No</th><th>Firma / Ürün</th><th>Miktar</th><th>Neden / Durum</th><th>Finansal Aksiyon</th><th>İşlem</th></tr></thead><tbody id="returnRows"></tbody></table></div></div>
+<div><label>Cari / Firma</label><select id="ret_firm" onchange="returnUpdateOrders()"></select></div>
+<div><label>İlgili Fatura / Sipariş</label><select id="ret_order" onchange="returnUpdateProducts()"></select></div>
+<div><label>İade Nedeni</label><select id="ret_reason"><option>Hasarlı ürün</option><option>SKT problemi</option><option>Yanlış ürün</option><option>Fazla ürün</option><option>Kalite problemi</option><option>Diğer</option></select></div>
+<div><label>Ürün Durumu</label><select id="ret_condition"><option value="quarantine">Karantina / İnceleme</option><option value="saleable">Sağlam / Satılabilir</option><option value="scrap">İmha / Hurda</option></select></div>
+<div><label>İade Kabul Deposu (İsteğe bağlı)</label><select id="ret_place"></select></div>
+<div><label>İade Tutarı (Otomatik, KDV dahil)</label><input id="ret_amount" readonly value="0.00"></div>
+<div class="span-4"><label>Açıklama</label><input id="ret_note" placeholder="İade ayrıntıları"></div></div>
+<div class="section-head"><h3>Faturadaki İade Edilecek Ürünler</h3><span class="muted">İade birimini koli veya adet seçebilirsiniz; tutar faturadaki indirimli ve KDV dahil fiyat üzerinden otomatik hesaplanır. Adet dönüşümü için ürün kartında koli içi adet tanımlı olmalıdır.</span></div>
+<div class="table-wrap"><table><thead><tr><th>Seç</th><th>Kod</th><th>Ürün</th><th>Satılan</th><th>İade Edilebilir</th><th>Birim Tutarı (KDV dahil)</th><th>İade Birimi / Miktarı</th><th>İade Tutarı</th></tr></thead><tbody id="returnProductRows"></tbody></table></div>
+<p>Carinin mevcut bakiyesi: <strong id="ret_balance">₺0,00</strong></p>
+<button class="btn primary" onclick="returnCreate()">İade Talebi Oluştur</button></div>
+<div class="card"><h3>İade Kayıtları ve Onaylar</h3><div class="table-wrap"><table><thead><tr><th>Tarih / No</th><th>Cari / Fatura / Ürünler</th><th>Miktar</th><th>Neden / Durum</th><th>Finansal İşlem</th><th>İşlem</th></tr></thead><tbody id="returnRows"></tbody></table></div></div>
 </section>
 </section>
   </main>
@@ -1424,6 +1425,9 @@
 <script src="js/14-cloudpayload.js"></script>
 <script src="js/15-cancelvisitedit.js"></script>
 <script src="js/16-delvisit.js"></script>
+<script src="js/18-invoice-returns.js"></script>
 <script src="js/17-responsive-mobile.js"></script>
+<script src="js/19-startup.js"></script>
+
 </body>
 </html>

@@ -30,7 +30,7 @@ function editOrderCargo(i){
   saveState();
   renderAll();
 }
-function delOrder(i){if((state.orders[i]?.sevkler||[]).some(s=>s.id&&stockInit().movements.some(m=>m.shipmentKey===s.id)))return alert("Stoktan düşülmüş sevkiyatı bulunan sipariş silinemez. Önce İşlem Geçmişi üzerinden sevkiyatı geri alın.");if(confirm("Sipariş silinsin mi?")){state.orders.splice(i,1);if(editingOrderIndex===i) clearOrderForm();closeInvoice();saveState();renderAll();}}
+function delOrder(i){if((state.customerReturns||[]).some(r=>r.orderNo===state.orders[i]?.no&&r.status!=="Reddedildi"))return alert("Bu faturaya bağlı iade var. Sipariş silinemez.");if((state.orders[i]?.sevkler||[]).some(s=>s.id&&stockInit().movements.some(m=>m.shipmentKey===s.id)))return alert("Stoktan düşülmüş sevkiyatı bulunan sipariş silinemez. Önce İşlem Geçmişi üzerinden sevkiyatı geri alın.");if(confirm("Sipariş silinsin mi?")){state.orders.splice(i,1);if(editingOrderIndex===i) clearOrderForm();closeInvoice();saveState();renderAll();}}
 
 
 

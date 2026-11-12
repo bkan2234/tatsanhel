@@ -256,7 +256,7 @@ function firmaOpenBalance(firmaAd){
   state.payments.forEach(p=>{
     if(p.firma === firmaAd) pays += Number(p.tutar||0);
   });
-  return sales - pays;
+  return sales - pays - ((state.customerReturns||[]).filter(r=>r.firm===firmaAd&&r.status==="Onaylandı"&&r.finance==="credit"&&r.financeDone===true).reduce((n,r)=>n+Number(r.amount||0),0));
 }
 
 
@@ -268,7 +268,7 @@ function scrollOrderArea(id){
 function go(view){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById(view).classList.add("active");
-  document.querySelectorAll(".menu button").forEach(b=>b.classList.toggle("active", b.dataset.view===view || (view==="kategoriler" && b.dataset.view==="urunler") || (view==="tahsilatlar" && b.dataset.view==="siparisler") || (view==="ziyaretler" && b.dataset.view==="teklifler")));
+  document.querySelectorAll(".menu button").forEach(b=>b.classList.toggle("active", b.dataset.view===view || (view==="kategoriler" && b.dataset.view==="urunler") || ((view==="tahsilatlar"||view==="iadeler") && b.dataset.view==="siparisler") || (view==="ziyaretler" && b.dataset.view==="teklifler")));
   const pageSelector = document.getElementById("productCategoryPageSelect_"+view);
   if(pageSelector) pageSelector.value = view;
   const groupSelector = document.getElementById("tatsanGroupSelect_"+view);
